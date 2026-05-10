@@ -1,7 +1,21 @@
-import { eq } from "drizzle-orm";
+import { eq, and, like, desc, asc, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  adminUsers,
+  kycDocuments,
+  flights,
+  rideGroups,
+  cmsContent,
+  b2bPartners,
+  sosIncidents,
+  auditLogs,
+  notifications,
+  analyticsMetrics,
+  userAppeals,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -56,8 +70,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,9 +98,252 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Admin-specific queries
+export async function getAdminByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(adminUsers)
+    .where(eq(adminUsers.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUsersWithFilters(
+  filters: {
+    search?: string;
+    verificationStatus?: string;
+    isBanned?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const { search, verificationStatus, isBanned, limit = 50, offset = 0 } = filters;
+  const conditions = [];
+
+  if (search) {
+    conditions.push(
+      like(users.name, `%${search}%`)
+    );
+  }
+  if (verificationStatus) {
+    conditions.push(eq(users.verificationStatus, verificationStatus as any));
+  }
+  if (isBanned !== undefined) {
+    conditions.push(eq(users.isBanned, isBanned));
+  }
+
+  const query = db.select().from(users);
+  const withConditions = conditions.length > 0 ? query.where(and(...conditions)) : query;
+
+  return await withConditions
+    .orderBy(desc(users.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getKycDocumentsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(kycDocuments)
+    .where(eq(kycDocuments.userId, userId));
+}
+
+export async function getPendingKycDocuments(limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(kycDocuments)
+    .where(eq(kycDocuments.verificationStatus, "pending"))
+    .orderBy(asc(kycDocuments.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getActiveFlights() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(flights)
+    .where(
+      and(
+        eq(flights.status, "in_flight"),
+        eq(flights.status, "landed")
+      )
+    );
+}
+
+export async function getRideGroupsByFlightId(flightId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(rideGroups)
+    .where(eq(rideGroups.flightId, flightId));
+}
+
+export async function getCmsContentByType(contentType: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(cmsContent)
+    .where(
+      and(
+        eq(cmsContent.contentType, contentType as any),
+        eq(cmsContent.isActive, true)
+      )
+    )
+    .orderBy(asc(cmsContent.displayOrder));
+}
+
+export async function getB2bPartnersByType(partnerType: string) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(b2bPartners)
+    .where(
+      and(
+        eq(b2bPartners.partnerType, partnerType as any),
+        eq(b2bPartners.status, "active")
+      )
+    );
+}
+
+export async function getSosIncidentsWithFilters(
+  filters: {
+    severity?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const { severity, status, limit = 50, offset = 0 } = filters;
+  const conditions = [];
+
+  if (severity) {
+    conditions.push(eq(sosIncidents.severity, severity as any));
+  }
+  if (status) {
+    conditions.push(eq(sosIncidents.status, status as any));
+  }
+
+  const query = db.select().from(sosIncidents);
+  const withConditions = conditions.length > 0 ? query.where(and(...conditions)) : query;
+
+  return await withConditions
+    .orderBy(desc(sosIncidents.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getAuditLogsByAdminId(
+  adminId: number,
+  limit = 100,
+  offset = 0
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(auditLogs)
+    .where(eq(auditLogs.adminId, adminId))
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getAnalyticsMetrics(
+  metricType: string,
+  hoursBack = 24
+) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const cutoffTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+
+  return await db
+    .select()
+    .from(analyticsMetrics)
+    .where(
+      and(
+        eq(analyticsMetrics.metricType, metricType as any),
+        gte(analyticsMetrics.recordedAt, cutoffTime)
+      )
+    )
+    .orderBy(desc(analyticsMetrics.recordedAt));
+}
+
+export async function getPendingUserAppeals(limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db
+    .select()
+    .from(userAppeals)
+    .where(eq(userAppeals.status, "under_review"))
+    .orderBy(asc(userAppeals.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function logAuditEvent(
+  adminId: number,
+  action: string,
+  resourceType: string,
+  resourceId: string | null,
+  changes: Record<string, any>,
+  ipAddress?: string,
+  userAgent?: string,
+  status: "success" | "failure" = "success",
+  errorMessage?: string
+) {
+  const db = await getDb();
+  if (!db) return;
+
+  try {
+    await db.insert(auditLogs).values({
+      adminId,
+      action,
+      resourceType,
+      resourceId,
+      changes,
+      ipAddress,
+      userAgent,
+      status,
+      errorMessage,
+    });
+  } catch (error) {
+    console.error("[Database] Failed to log audit event:", error);
+  }
+}
