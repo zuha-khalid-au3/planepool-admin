@@ -3,6 +3,7 @@ import express from "express";
 import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { registerLocalMobileApi } from "../localMobileApi";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
@@ -34,6 +35,9 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  if (process.env.NODE_ENV === "development") {
+    registerLocalMobileApi(app);
+  }
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   // tRPC API
