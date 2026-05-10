@@ -10,6 +10,9 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminKYC from "./pages/AdminKYC";
 import AdminCMS from "./pages/AdminCMS";
 import AdminAnalytics from "./pages/AdminAnalytics";
+import AdminNotifications from "./pages/AdminNotifications";
+import AdminSecurity from "./pages/AdminSecurity";
+import AdminLLMAssistant from "./pages/AdminLLMAssistant";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -21,6 +24,9 @@ function Router() {
       <Route path="/admin/kyc" component={AdminKYC} />
       <Route path="/admin/cms" component={AdminCMS} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
+      <Route path="/admin/notifications" component={AdminNotifications} />
+      <Route path="/admin/security" component={AdminSecurity} />
+      <Route path="/admin/llm" component={AdminLLMAssistant} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

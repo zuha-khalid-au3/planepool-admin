@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Lock,
+  Sparkles,
 } from "lucide-react";
 
 interface AdminDashboardLayoutProps {
@@ -40,8 +41,7 @@ export default function AdminDashboardLayout({
     { id: "partners", label: "B2B Partners", icon: TrendingUp, href: "/admin/partners" },
     { id: "notifications", label: "Notifications", icon: MessageSquare, href: "/admin/notifications" },
     { id: "analytics", label: "Analytics", icon: BarChart3, href: "/admin/analytics" },
-    { id: "appeals", label: "Appeals", icon: AlertTriangle, href: "/admin/appeals" },
-    { id: "settings", label: "Settings", icon: Settings, href: "/admin/settings" },
+    { id: "llm", label: "AI Assistant", icon: Sparkles, href: "/admin/llm" },
   ];
 
   const handleLogout = async () => {
